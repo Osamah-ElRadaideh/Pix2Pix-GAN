@@ -11,6 +11,8 @@ due to the limited hardware capabilities, i had to use a small image dataset wit
 
 
 ground truth images:
+
+
   <img src="/images/ground_truth.png" alt="gt" >
   
   <img src="/images/set1_GT.png" alt="set1_GT" >
