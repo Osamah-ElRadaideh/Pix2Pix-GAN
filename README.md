@@ -11,7 +11,7 @@ due to the limited hardware capabilities, i had to use a small image dataset wit
 
 ground truth images:
   <img src="/images/ground_truth.png" alt="gt" >
-  <img src="/images/set1_GT" alt="set1_GT" >
+  <img src="/images/set1_GT.png" alt="set1_GT" >
 
 
 greyscale images:
@@ -23,7 +23,7 @@ greyscale images:
 colourised images:
 
 <img src="/images/colourised.png" alt="colourised" >
-<img src="/images/set1_C" alt="set1_C" >
+<img src="/images/set1_C.png" alt="set1_C" >
 
 
 
