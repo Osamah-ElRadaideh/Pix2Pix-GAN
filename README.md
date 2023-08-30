@@ -23,15 +23,15 @@ colourised images:
 </div>
 
 <div>
-  <img src="/images/set1_GT" alt="gt" >
+  <img src="/images/set1_GT" alt="set1_GT" >
 
 greyscale images:
 
-<img src="/images/set1_BW.png" alt="bw" >
+<img src="/images/set1_BW.png" alt="set1_GT" >
 
 colourised images:
 
-<img src="/images/set1_C" alt="colourised" >
+<img src="/images/set1_C" alt="set1_C" >
 </div>
 
 
