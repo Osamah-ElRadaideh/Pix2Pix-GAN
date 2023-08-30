@@ -1,35 +1,31 @@
 import torch
 import torch.nn as nn
-
+from torch import Tensor
+import torch.nn.functional as F
 class down_block(nn.Module):
     #encoding path of the Unet
     def __init__(self,in_channels,out_channels,kernel_size=3,stride=1,padding=1):
         super(down_block,self).__init__()
-        self.conv1 = nn.Conv2d(in_channels,out_channels,kernel_size=kernel_size,stride=stride,padding='same')
+        self.conv1 = nn.Conv2d(in_channels,out_channels,kernel_size=kernel_size,stride=stride,padding=padding)
         self.bn = nn.BatchNorm2d(out_channels)
         self.relu=nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(out_channels,out_channels,kernel_size=kernel_size,stride=stride,padding='same')
+        self.conv2 = nn.Conv2d(out_channels,out_channels,kernel_size=kernel_size,stride=stride,padding=padding)
     def forward(self,x):
         x = self.conv1(x)
-        x = self.bn(x)
-        x = self.relu(x)
-        x = self.conv2(x)
         x = self.bn(x)
         x = self.relu(x)
         return x
 
 class up_block(nn.Module):
-    #decoding path of the Unet
-    def __init__(self,in_channels,out_channels,kernel_size=5,stride=2,padding=2):
+    def __init__(self,in_channels,out_channels,kernel_size=2,stride=2,padding=0):
         super(up_block,self).__init__()
-        self.trans = nn.ConvTranspose2d(in_channels,out_channels,kernel_size=kernel_size,stride=stride,padding=padding,output_padding=1)
+        self.trans = nn.ConvTranspose2d(in_channels,out_channels,kernel_size=kernel_size,stride=stride,padding=padding,output_padding=0)
         self.bn = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout(p=0.4)
     def forward(self,x):
         x = self.trans(x)
         x = self.bn(x)
-        x = self.relu(x)
         x = self.dropout(x)
         return x 
 
@@ -52,14 +48,24 @@ class conv_block(nn.Module):
 
 class Generator(nn.Module):
     #the Unet model, works with any input shape 2^n x 2^n
-    def __init__(self,channels=[1,32,64,128,256,512]):
+    def __init__(self,channels=[3,32,64,128,256,512]):
         super(Generator,self).__init__()
         self.conv1= down_block(channels[0],channels[1])
+        # self.conv1_2= down_block(channels[1],channels[1])
+
         self.maxpool= nn.MaxPool2d(kernel_size=(2,2),stride=2)
         self.conv2= down_block(channels[1],channels[2])
+        # self.conv2_2= down_block(channels[2],channels[2])
+
         self.conv3= down_block(channels[2],channels[3])
+        # self.conv3_2= down_block(channels[3],channels[3])
+
         self.conv4= down_block(channels[3],channels[4])
-        self.conv5= down_block(channels[4],channels[5])
+        # self.conv4_2= down_block(channels[4],channels[4])
+
+        self.conv5 = down_block(channels[4],channels[5])
+        # self.conv5_2 = down_block(channels[5],channels[5])
+
         self.up1 = up_block(channels[5],channels[4])
         self.up2 = up_block(channels[4],channels[3])
         self.up3 = up_block(channels[3],channels[2])
@@ -69,38 +75,35 @@ class Generator(nn.Module):
         self.upconv2 = down_block(channels[4],channels[3])
         self.upconv3 = down_block(channels[3],channels[2])
         self.upconv4 = down_block(channels[2],channels[1])
-        self.upconv5 = nn.Conv2d(channels[1],3,kernel_size=1)
+        self.upconv5 = nn.Conv2d(channels[1],channels[0],kernel_size=1)
         self.relu=nn.ReLU(inplace=True)
+        self.sigmoid = nn.Sigmoid()
     def forward(self,x):
-        x = x[:, None, : , :]
-        x = self.conv1(x)
-        state1 = x
-        x = self.maxpool(x)
-        x = self.conv2(x)
-        state2 = x 
-        x = self.maxpool(x)
-        x = self.conv3(x)
-        state3 = x 
-        x = self.maxpool(x)
-        x = self.conv4(x)
-        state4 = x 
-        x = self.maxpool(x)
-        x = self.conv5(x)
-        x = self.up1(x)
-        x = torch.cat([x,state4],1)
-        x = self.upconv1(x)
-        x = self.up2(x)
-        x = torch.cat([x,state3],1)
-        x = self.upconv2(x)
-        x = self.up3(x)
-        x = torch.cat([x,state2],1)
-        x = self.upconv3(x)
-        x = self.up4(x)
-        x = torch.cat([x,state1],1)
-        x = self.upconv4(x)
-        x = self.upconv5(x)
-        x = self.relu(x)
-        return x
+        out1 = self.conv1(x)
+        state1 = self.maxpool(out1)
+
+        out2 = self.conv2(state1)
+        state2 = self.maxpool(out2)
+
+        out3 = self.conv3(state2)
+        state3 = self.maxpool(out3)
+
+        out4 = self.conv4(state3)
+        state4 = self.maxpool(out4
+                              )
+        out5 = self.conv5(state4)
+        state5 = self.up1(out5)
+
+        out6 = self.upconv1(torch.cat([state5, out4], dim=1))
+        state6 = self.up2(out6)
+        out7 = self.upconv2(torch.cat([state6, out3], dim=1))
+        state7 = self.up3(out7)
+        out8 = self.upconv3(torch.cat([state7, out2], dim=1))
+        state8 = self.up4(out8)
+        out9 = self.upconv4(torch.cat([state8, out1], dim=1))
+        outputs = self.upconv5(out9)
+      
+        return self.sigmoid(outputs)
     
 
 
@@ -110,16 +113,18 @@ class Discriminator(nn.Module):
         super().__init__()
         self.conv1 = conv_block(3,64)
         self.conv2 = conv_block(64,128)
-        self.conv3 = conv_block(128,256)
-        self.conv4 = conv_block(256,512)
-        self.conv5 = conv_block(512,1, act='None',padding=0)
+        self.conv3 = conv_block(128,64)
+        self.conv4 = conv_block(64,32)
+
+        self.conv5 = conv_block(32,1, act='None',padding=0)
+        self.sigmoid = nn.Sigmoid()
     def forward(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
         x = self.conv4(x)
         x = self.conv5(x)
-        return x
+        return x.squeeze()
             
 
 
@@ -135,3 +140,31 @@ def disc_loss(real_outs, fake_outs):
     g_loss = 0.5 * torch.mean(fake_outs ** 2)
 
     return d_loss + g_loss
+
+
+def logistic_g_loss(d_generated_outputs: Tensor) -> Tensor:
+    """
+    Logistic generator loss.
+    Assumes input is D(G(x)), or in our case, D(W(z)).
+    `disc_outputs` of shape (bs,)
+    """
+    # d_generated_outputs = torch.sigmoid(d_generated_outputs)
+    # loss = torch.log(1 - d_generated_outputs).mean()
+    loss = F.softplus(-d_generated_outputs).mean()
+    return loss
+
+def logistic_d_loss(d_real_outputs, d_generated_outputs):
+    """
+    Logistic discriminator loss.
+    `d_real_outputs` (bs,): D(x), or in our case D(c)
+    `d_generated_outputs` (bs,): D(G(x)), or in our case D(W(z))
+    D attempts to push real samples as big as possible (as close to 1.0 as possible), 
+    and push fake ones to 0.0
+    """
+    # d_real_outputs = torch.sigmoid(d_real_outputs)
+    # d_generated_outputs = torch.sigmoid(d_generated_outputs)
+    # loss = -( torch.log(d_real_outputs) + torch.log(1-d_generated_outputs) )
+    # loss = loss.mean()
+    term1 = F.softplus(d_generated_outputs) 
+    term2 = F.softplus(-d_real_outputs)
+    return (term1 + term2).mean()
