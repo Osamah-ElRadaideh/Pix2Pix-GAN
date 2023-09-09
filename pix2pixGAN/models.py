@@ -2,6 +2,20 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 import torch.nn.functional as F
+
+
+def center_crop(tensor,reference_tensor):
+    """
+    center crops the encoded image to match the shape of the decoded one,
+      needed for images not having shape of 2^n x 2^m 
+    """
+    height = reference_tensor.shape[2]
+    width = reference_tensor.shape[3]
+    heightStartIdx = ((tensor.shape[2] +1) - height) / 2
+    widthStartIdx = ((tensor.shape[3] +1) - width) / 2
+    return tensor[:,:,int(heightStartIdx):int(heightStartIdx+height), int(widthStartIdx):int(widthStartIdx+width)]
+
+
 class down_block(nn.Module):
     #encoding path of the Unet
     def __init__(self,in_channels,out_channels,kernel_size=3,stride=1,padding=1):
@@ -94,13 +108,13 @@ class Generator(nn.Module):
         out5 = self.conv5(state4)
         state5 = self.up1(out5)
 
-        out6 = self.upconv1(torch.cat([state5, out4], dim=1))
+        out6 = self.upconv1(torch.cat([state5, center_crop(out4,state5)], dim=1))
         state6 = self.up2(out6)
-        out7 = self.upconv2(torch.cat([state6, out3], dim=1))
+        out7 = self.upconv2(torch.cat([state6, center_crop(out3,state6)], dim=1))
         state7 = self.up3(out7)
-        out8 = self.upconv3(torch.cat([state7, out2], dim=1))
+        out8 = self.upconv3(torch.cat([state7, center_crop(out2,state7)], dim=1))
         state8 = self.up4(out8)
-        out9 = self.upconv4(torch.cat([state8, out1], dim=1))
+        out9 = self.upconv4(torch.cat([state8, center_crop(out1,state8)], dim=1))
         outputs = self.upconv5(out9)
       
         return self.sigmoid(outputs)
